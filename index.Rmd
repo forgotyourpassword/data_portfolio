@@ -15,7 +15,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r}
@@ -59,18 +59,4 @@ ramen %>%
   labs(title = "Top Columns and Values in the Data", x="", y="# of records")
 ```
 
-```{r}
-
-s <- sample(NROW(ramen),500)
-s2 <- sample(NROW(ramen),500)
-train <- ramen[s,]
-test <- ramen[s2,]
-
-dtm <- rpart(stars ~.,data = train,method = "class")
-pdtm<- prune(dtm, cp=   dtm$cptable[which.min(dtm$cptable[,"xerror"]),"CP"])
-rpart.plot(pdtm,type = 3, clip.right.labs = FALSE, branch = .3, under = TRUE)
-
-summary(pdtm)
-table(predict(pdtm,test[,1:5]),test[,6])
-```
 
