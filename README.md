@@ -1,2 +1,2 @@
-# Ramen Ratings
-Analysis of the RforDataScience Tidy Tuesday dataset related to ratings of ramen brands. 
+# Data Analysis Portfolio
+This repository contains analytics I've performed on public data sets.
