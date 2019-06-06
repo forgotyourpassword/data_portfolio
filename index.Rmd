@@ -1,0 +1,76 @@
+---
+title: "Predicting Ramen Ratings"
+author: "Michael Molloy"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    df_print: kable
+    includes:
+          after_body: "./assets/html/footer.html"
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+library(data.table)
+```
+
+```{r}
+# read data
+ramen <- fread("./source/ramen_ratings.csv")
+names(ramen)
+```
+
+```{r}
+ramen %>% 
+ gather(category,value, -review_number, -variety,brand) %>% 
+  count(category, value) %>% 
+  group_by(category) %>% 
+  top_n(10,n) %>% 
+  ungroup() %>% 
+  mutate(value = fct_reorder(value,n,sum), 
+         category = fct_reorder(category,n, length)) %>% 
+  ggplot(aes(value, n)) +
+    geom_col(position = position_stack(reverse = TRUE)) +
+     facet_wrap(~ category, scales = "free_y") +
+  coord_flip() + 
+  theme(
+      panel.grid.major  = element_line(color = "lightgrey"),
+      panel.background = element_rect(fill = "white"),
+      panel.border = element_rect(color = "white", fill = NA),
+      axis.line = element_line(color = "lightgrey"),
+      axis.ticks = element_line(color = "lightgrey"),
+      axis.text = element_text(color = "black"),
+      title = element_text(color = "black"),
+      strip.text.x = element_text(colour = "black", face = "bold"), 
+      plot.background = element_rect(fill = "white")
+      ) +
+  labs(title = "Top Columns and Values in the Data", x="", y="# of records")
+```
+
+```{r}
+
+s <- sample(NROW(ramen),500)
+s2 <- sample(NROW(ramen),500)
+train <- ramen[s,]
+test <- ramen[s2,]
+
+dtm <- rpart(stars ~.,data = train,method = "class")
+pdtm<- prune(dtm, cp=   dtm$cptable[which.min(dtm$cptable[,"xerror"]),"CP"])
+rpart.plot(pdtm,type = 3, clip.right.labs = FALSE, branch = .3, under = TRUE)
+
+summary(pdtm)
+table(predict(pdtm,test[,1:5]),test[,6])
+```
+
