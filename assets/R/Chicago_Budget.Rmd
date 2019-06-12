@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-```{r}
+```{r include=FALSE}
 library(tidyverse)
 ```
 ```{r include=FALSE}
@@ -24,7 +24,7 @@ budget_2018 <- read_csv("../../source/chicago_budget/Budget_-_2018_Budget_Ordina
 budget_2019 <- read_csv("../../source/chicago_budget/Budget_-_2019_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2019)
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 # Column names don't match across datasets. Need to identify which ones are missing and for which years so we can create them.
 
   # get all the column names for each dataset
@@ -47,8 +47,10 @@ data_names_issues <- data_names %>%
 data_names %>% 
   filter(name %in% data_names_issues$name) %>% 
 arrange(name) %>% View()
+```
 
-# add columns to year's where they're missing
+```{r}
+# add columns to years where they're missing
   #2011
 budget_2011$`BARGAINING UNIT` <- NA
 names(budget_2011)[names(budget_2011)=="DEPARTMENT NAME"] <- "DEPARTMENT DESCRIPTION"
@@ -70,9 +72,35 @@ budget_2011$`ORGANIZATION DESCRIPTION` <- NA
 budget_2012$`ORGANIZATION DESCRIPTION` <- NA
 budget_2013$`ORGANIZATION DESCRIPTION` <- NA
 
-budget_2011[1:100,c("DEPARTMENT CODE","DEPARTMENT","DEPARTMENT DESCRIPTION")]
-budget_2014[1:100,c("ORGANIZATION DESCRIPTION")]
+# bind together
+budget <- rbind(budget_2011,budget_2012,budget_2013,budget_2014,budget_2015,budget_2016,budget_2017,budget_2018,budget_2019)
 ```
 
+```{r}
+# calculate the total budget by year
+budget_summary <- budget %>%
+  group_by(YEAR) %>% 
+  summarize(total =sum(`TOTAL BUDGETED AMOUNT`)/1000000000) %>% #calculate total budget and simplify
+  mutate(growth = 100*(total - lag(total))/lag(total)) # how much did the budget grow from previous year?
+
+# chart of total budget over time
+budget_summary %>% 
+  ggplot(aes(YEAR,total)) +
+  geom_line() +
+  scale_x_continuous(breaks = c(2011:2019)) +
+  labs(title = "Chicago Government Employee Salary Budget", y="Dollars (in Billions",x="")
+
+# chart of year over year budget growth rate
+budget_summary %>%
+  ggplot(aes(YEAR,growth)) +
+  geom_line() +
+  geom_smooth(method="lm") +
+  scale_x_continuous(breaks = c(2011:2019)) +
+  labs(title = "Chicago Government Employee Salary Budget", y="Dollars (in Billions",x="")
+```
+
+```{r}
+
+```
 
 
