@@ -1,0 +1,46 @@
+---
+title: "Ramen_Ratings"
+author: "Michael Molloy"
+date: "6/12/2019"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+library(data.table)
+```
+
+```{r}
+# read data
+ramen <- fread("../../source/ramen_ratings.csv")
+names(ramen)
+```
+
+```{r}
+ramen %>% 
+ gather(category,value, -review_number, -variety,brand) %>% 
+  count(category, value) %>% 
+  group_by(category) %>% 
+  top_n(10,n) %>% 
+  ungroup() %>% 
+  mutate(value = fct_reorder(value,n,sum), 
+         category = fct_reorder(category,n, length)) %>% 
+  ggplot(aes(value, n)) +
+    geom_col(position = position_stack(reverse = TRUE)) +
+     facet_wrap(~ category, scales = "free_y") +
+  coord_flip() + 
+  theme(
+      panel.grid.major  = element_line(color = "lightgrey"),
+      panel.background = element_rect(fill = "white"),
+      panel.border = element_rect(color = "white", fill = NA),
+      axis.line = element_line(color = "lightgrey"),
+      axis.ticks = element_line(color = "lightgrey"),
+      axis.text = element_text(color = "black"),
+      title = element_text(color = "black"),
+      strip.text.x = element_text(colour = "black", face = "bold"), 
+      plot.background = element_rect(fill = "white")
+      ) +
+  labs(title = "Top Columns and Values in the Data", x="", y="# of records")
+```
