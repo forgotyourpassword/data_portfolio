@@ -1,0 +1,68 @@
+---
+title: "Chicago Budget Data Exploration"
+author: "Michael Molloy"
+date: "June 13, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(tidyverse)
+
+# read data
+budget_2011 <- read_csv("../input/source/chicago_budget/Budget_-_2011_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2011)
+budget_2012 <- read_csv("../input/source/chicago_budget/Budget_-_2012_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2012)
+budget_2013 <- read_csv("../input/source/chicago_budget/Budget_-_2013_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2013)
+budget_2014 <- read_csv("../input/source/chicago_budget/Budget_-_2014_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2014)
+budget_2015 <- read_csv("../input/source/chicago_budget/Budget_-_2015_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2015)
+budget_2016 <- read_csv("../input/source/chicago_budget/Budget_-_2016_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2016)
+budget_2017 <- read_csv("../input/source/chicago_budget/Budget_-_2017_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2017)
+budget_2018 <- read_csv("../input/source/chicago_budget/Budget_-_2018_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2018)
+budget_2019 <- read_csv("../input/source/chicago_budget/Budget_-_2019_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2019)
+```
+
+Column names don't match across datasets. We need to identify which ones are missing and for which years so we can create them.
+```{r cars}
+# get all the column names for each dataset
+data_names <- data.frame(name = names(budget_2011), year = 2011) %>% 
+  rbind(data.frame(name = names(budget_2012), year = 2012)) %>%
+  rbind(data.frame(name = names(budget_2013), year = 2013)) %>% 
+  rbind(data.frame(name = names(budget_2014), year = 2014)) %>% 
+  rbind(data.frame(name = names(budget_2015), year = 2015)) %>% 
+  rbind(data.frame(name = names(budget_2016), year = 2016)) %>% 
+  rbind(data.frame(name = names(budget_2017), year = 2017)) %>% 
+  rbind(data.frame(name = names(budget_2018), year = 2018)) %>% 
+  rbind(data.frame(name = names(budget_2019), year = 2019))
+  
+# identify the columns that don't show up in all years
+data_names_issues <- data_names %>% 
+  group_by(name) %>% 
+  summarize(count=n()) %>% 
+  filter(count < 9)
+
+# show the years the troublesome columns DO show up in
+data_names %>% 
+  filter(name %in% data_names_issues$name) %>% 
+arrange(name) %>% View()
+
+```
+
+The Chicago Budget Data Tranformation.R file has the code to wrangle the raw data. The cleaned up data is written to the Rds file below
+```{r}
+# read the tranformed budget data
+budget <- read_rds("../input/source/chicago_budget/Chicago Budget.Rds")
+```
+
+The "DEPARTMENT DESCRIPTION" contains the human readable names for each department. Over time, the department descriptions have changed. We can see this by grouping on the department code. 
+```{r}
+budget %>% 
+  group_by(`DEPARTMENT CODE`,`DEPARTMENT DESCRIPTION`) %>% 
+  summarise(n()) %>% 
+  head(30)
+```
+```{r}
+
+```
+

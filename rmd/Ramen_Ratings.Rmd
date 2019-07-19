@@ -1,0 +1,46 @@
+---
+title: "Ramen_Ratings"
+author: "Michael Molloy"
+date: "6/12/2019"
+output: html_document
+---
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+```
+
+Here is an example dataset containing consumer ratings for different ramen brands. It contains six columns. 
+```{r echo=TRUE}
+# read data
+ramen <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-06-04/ramen_ratings.csv")
+names(ramen)
+```
+
+The code below can be helpful when we have a dataset we've never seen before and we want to determine the top records in each column.  The code doesn't require much tweaking, except for removing certain columns from the "gather" function that contain mostly unique values and therefore do not plot well.    
+
+```{r echo=TRUE}
+ramen %>% 
+ gather(category,value, -review_number, -variety) %>% # use "-variable_name" to remove columns. 
+  count(category, value) %>% 
+  group_by(category) %>% 
+  top_n(10,n) %>% 
+  ungroup() %>% 
+  mutate(value = fct_reorder(value,n,sum), 
+         category = fct_reorder(category,n, length)) %>% 
+  ggplot(aes(value, n)) +
+    geom_col(position = position_stack(reverse = TRUE)) +
+     facet_wrap(~ category, scales = "free_y") +
+  coord_flip() + 
+  theme(
+      panel.grid.major  = element_line(color = "lightgrey"),
+      panel.background = element_rect(fill = "white"),
+      panel.border = element_rect(color = "white", fill = NA),
+      axis.line = element_line(color = "lightgrey"),
+      axis.ticks = element_line(color = "lightgrey"),
+      axis.text = element_text(color = "black"),
+      title = element_text(color = "black"),
+      strip.text.x = element_text(colour = "black", face = "bold"), 
+      plot.background = element_rect(fill = "white")
+      ) +
+  labs(title = "Top Columns and Values in the Data", x="", y="# of records")
+```

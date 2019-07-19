@@ -1,0 +1,49 @@
+---
+title: "Chicago Budget"
+author: "Michael Molloy"
+date: "6/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r include=FALSE}
+library(tidyverse)
+```
+
+```{r}
+# calculate the total budget by year
+budget_summary <- budget %>%
+  group_by(YEAR) %>% 
+  summarize(total =sum(`TOTAL BUDGETED AMOUNT`)/1000000000) %>% #calculate total budget and simplify
+  mutate(growth = 100*(total - lag(total))/lag(total)) # how much did the budget grow from previous year?
+
+# chart of total budget over time
+budget_summary %>% 
+  ggplot(aes(YEAR,total)) +
+  geom_line() +
+  scale_x_continuous(breaks = c(2011:2019)) +
+  labs(title = "Chicago Government Employee Salary Budget", y="Dollars (in Billions",x="")
+
+# chart of year over year budget growth rate
+budget_summary %>%
+  ggplot(aes(YEAR,growth)) +
+  geom_line() +
+  geom_smooth(method="lm") +
+  scale_x_continuous(breaks = c(2011:2019)) +
+  labs(title = "Chicago Government Employee Salary Budget", y="Dollars (in Billions",x="")
+```
+
+```{r}
+# total budget by department
+budget %>%
+  group_by(code = `DEPARTMENT CODE`) %>% 
+  summarize(total = sum(`TOTAL BUDGETED AMOUNT`)) %>%
+  arrange(total) %>% 
+  ggplot(aes(code,total)) +
+  geom_col() +
+  coord_flip()
+```
+
+
