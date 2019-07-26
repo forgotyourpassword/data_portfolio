@@ -36,5 +36,16 @@ budget_2019 <- read_csv("./input/source/chicago_budget/Budget_-_2019_Budget_Ordi
 # bind together
 budget <- rbind(budget_2011,budget_2012,budget_2013,budget_2014,budget_2015,budget_2016,budget_2017,budget_2018,budget_2019)
 
+# make department names consistent
+  ## load the mapping table
+  DepartmentNameMap <- read.csv("./input/source/chicago_budget/Department Mapping Table.csv",stringsAsFactors = F)
+
+  ## use the mapping table to replace the production data
+    for (row in 1:NROW(DepartmentNameMap)) {
+      from <- DepartmentNameMap[row,1]
+      to <- DepartmentNameMap[row,2]
+      budget$`DEPARTMENT DESCRIPTION` <- str_replace(budget$`DEPARTMENT DESCRIPTION`,from,to)
+    }
+
 # write the output file
 write_rds(budget,"./input/source/chicago_budget/Chicago Budget.Rds")

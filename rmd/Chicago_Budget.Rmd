@@ -11,6 +11,97 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r include=FALSE}
 library(tidyverse)
 ```
+#Chicago Budget Data 
+The City of Chicago publishes dozens of datasets every year through their data portal (https://data.cityofchicago.org/).  Since 2011, they have made public the budgeted salaries/ hourly rates for all City of Chicago employees.
+
+# Loading Source Data
+Source data was exported from the Chicago data portal into CSV format. Each file was loaded into R as a dataframe. A "Year" column was added to keep track of which records come from which budget year. 
+
+```{r}
+# read data
+budget_2011 <- read_csv("../input/source/chicago_budget/Budget_-_2011_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2011)
+budget_2012 <- read_csv("../input/source/chicago_budget/Budget_-_2012_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2012)
+budget_2013 <- read_csv("../input/source/chicago_budget/Budget_-_2013_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2013)
+budget_2014 <- read_csv("../input/source/chicago_budget/Budget_-_2014_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2014)
+budget_2015 <- read_csv("../input/source/chicago_budget/Budget_-_2015_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2015)
+budget_2016 <- read_csv("../input/source/chicago_budget/Budget_-_2016_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2016)
+budget_2017 <- read_csv("../input/source/chicago_budget/Budget_-_2017_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2017)
+budget_2018 <- read_csv("../input/source/chicago_budget/Budget_-_2018_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2018)
+budget_2019 <- read_csv("../input/source/chicago_budget/Budget_-_2019_Budget_Ordinance_-_Positions_and_Salaries.csv") %>% mutate(YEAR = 2019)
+```
+# Data Wrangling
+Before any analysis can be performed on the dataset we need to tidy up the data. 
+
+## Add Missing Columns
+The first problem we encounter is mismatched and/or missing column names. Once we make it so all of the column names match, we can bind each year's dataset together into a single dataframe.
+```{r}
+# add columns to years where they're missing
+  #2011
+  budget_2011$`BARGAINING UNIT` <- NA
+  names(budget_2011)[names(budget_2011)=="DEPARTMENT NAME"] <- "DEPARTMENT DESCRIPTION"
+  names(budget_2011)[names(budget_2011)=="DIVISION NAME"] <- "DIVISION DESCRIPTION"
+  names(budget_2011)[names(budget_2011)=="FUND NAME"] <- "FUND DESCRIPTION"
+  names(budget_2011)[names(budget_2011)=="SECTION NAME"] <- "SECTION DESCRIPTION"
+  names(budget_2011)[names(budget_2011)=="SCHEDULE"] <- "SCHEDULE / GRADE"
+  names(budget_2011)[names(budget_2011)=="TOTAL BUDGETED UNITS"] <- "TOTAL BUDGETED UNIT"
+  names(budget_2011)[names(budget_2011)=="SUBSECTION CODE"] <- "SUB-SECTION CODE"
+  names(budget_2011)[names(budget_2011)=="SUBSECTION NAME"] <- "SUB-SECTION DESCRIPTION"
+  budget_2011 <- within(budget_2011,rm("DEPARTMENT"))
+  
+  #2012
+  names(budget_2012)[names(budget_2012)=="DEPARTMENT NUMBER"] <- "DEPARTMENT CODE"
+  names(budget_2012)[names(budget_2012)=="SCHEDULE/GRADE"] <- "SCHEDULE / GRADE"
+  
+  #2011-2013
+  budget_2011$`ORGANIZATION DESCRIPTION` <- NA
+  budget_2012$`ORGANIZATION DESCRIPTION` <- NA
+  budget_2013$`ORGANIZATION DESCRIPTION` <- NA
+  
+  # bind together all years into a single dataframe
+budget <- rbind(budget_2011,budget_2012,budget_2013,budget_2014,budget_2015,budget_2016,budget_2017,budget_2018,budget_2019)
+
+```
+
+
+```{r}
+# are department names consistent?
+budget %>% 
+  distinct(`DEPARTMENT DESCRIPTION`,`DEPARTMENT CODE`) %>% 
+  group_by(`DEPARTMENT CODE`) %>% 
+  summarise(count = n()) %>% 
+  filter(count >1) %>% 
+  ggplot(aes(reorder(`DEPARTMENT CODE`,count),count, fill = as.factor(count))) +
+  geom_col() +
+  guides(fill=FALSE)+
+  coord_flip() + 
+  labs(title = "Mismatched Department Names", subtitle = "Chicago Budget Data 2011-2019", x= "Department Code",y="# of Department Names")
+```
+
+```{r}
+# make department names consistent
+  ## load the mapping table
+  DepartmentNameMap <- read.csv("./input/source/chicago_budget/Department Mapping Table.csv",stringsAsFactors = F)
+
+  ## use the mapping table to replace the production data
+    for (row in 1:NROW(DepartmentNameMap)) {
+      from <- DepartmentNameMap[row,1]
+      to <- DepartmentNameMap[row,2]
+      budget$`DEPARTMENT DESCRIPTION` <- str_replace(budget$`DEPARTMENT DESCRIPTION`,from,to)
+    }
+
+# write the output file
+write_rds(budget,"./input/source/chicago_budget/Chicago Budget.Rds")
+```
+
+
+
+# Chicago Budget Analysis
+
+```{r}
+
+#read data
+budget <- read_rds("../input/source/chicago_budget/Chicago Budget.Rds")
+```
 
 ```{r}
 # calculate the total budget by year
@@ -24,7 +115,7 @@ budget_summary %>%
   ggplot(aes(YEAR,total)) +
   geom_line() +
   scale_x_continuous(breaks = c(2011:2019)) +
-  labs(title = "Chicago Government Employee Salary Budget", y="Dollars (in Billions",x="")
+ labs(title = "City of Chicago Budget",subtitle = "Employee Salaries", y="Dollars (in Billions)",x="")
 
 # chart of year over year budget growth rate
 budget_summary %>%
@@ -32,18 +123,22 @@ budget_summary %>%
   geom_line() +
   geom_smooth(method="lm") +
   scale_x_continuous(breaks = c(2011:2019)) +
-  labs(title = "Chicago Government Employee Salary Budget", y="Dollars (in Billions",x="")
+  labs(title = "City of Chicago Budget",subtitle = "Employee Salary Growth", y="Growth Rate(%)",x="")
 ```
 
 ```{r}
 # total budget by department
 budget %>%
-  group_by(code = `DEPARTMENT CODE`) %>% 
+  group_by(Department = `DEPARTMENT DESCRIPTION`) %>% 
   summarize(total = sum(`TOTAL BUDGETED AMOUNT`)) %>%
-  arrange(total) %>% 
-  ggplot(aes(code,total)) +
+  arrange(desc(total)) %>%
+  head(10) %>% 
+  mutate(total = total/1000000000) %>% 
+  ggplot(aes(reorder(Department,total),total, fill = as.factor(total))) +
   geom_col() +
-  coord_flip()
+  guides(fill=FALSE)+
+  coord_flip() + 
+  labs(title = "Top Departments", subtitle = "Total Budget Amounts 2011-2019", x= "",y="$(in billions)")
 ```
 
 
