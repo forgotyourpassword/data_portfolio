@@ -62,6 +62,10 @@ budget <- rbind(budget_2011,budget_2012,budget_2013,budget_2014,budget_2015,budg
 
 ```
 
+## Mismatched Department Names
+Over time, the city of Chicago has changed the exact text they use to describe departments.  While the numerical department code has stayed the same, it would be helpful if the department name text was consistent in our dataset. 
+
+The graphic below shows the number of unique department names. 
 
 ```{r}
 # are department names consistent?
@@ -77,10 +81,11 @@ budget %>%
   labs(title = "Mismatched Department Names", subtitle = "Chicago Budget Data 2011-2019", x= "Department Code",y="# of Department Names")
 ```
 
+To make it so the department names are consistent across years, we create a CSV file to map the original text and the text we want to change it to. Then a for loop is used to go through every record in the dataset to find and replace based on our mapping CSV file.
 ```{r}
 # make department names consistent
   ## load the mapping table
-  DepartmentNameMap <- read.csv("./input/source/chicago_budget/Department Mapping Table.csv",stringsAsFactors = F)
+  DepartmentNameMap <- read.csv("../input/source/chicago_budget/Department Mapping Table.csv",stringsAsFactors = F)
 
   ## use the mapping table to replace the production data
     for (row in 1:NROW(DepartmentNameMap)) {
@@ -88,12 +93,14 @@ budget %>%
       to <- DepartmentNameMap[row,2]
       budget$`DEPARTMENT DESCRIPTION` <- str_replace(budget$`DEPARTMENT DESCRIPTION`,from,to)
     }
-
-# write the output file
-write_rds(budget,"./input/source/chicago_budget/Chicago Budget.Rds")
 ```
 
-
+# Saving the Data
+Once we've finished with our data wrangling we can save our tidy data to a single RDS file and begin our analysis.
+```{r}
+# write the output file
+write_rds(budget,"../input/source/chicago_budget/Chicago Budget.Rds")
+```
 
 # Chicago Budget Analysis
 
@@ -103,6 +110,7 @@ write_rds(budget,"./input/source/chicago_budget/Chicago Budget.Rds")
 budget <- read_rds("../input/source/chicago_budget/Chicago Budget.Rds")
 ```
 
+# Total Budget
 ```{r}
 # calculate the total budget by year
 budget_summary <- budget %>%
@@ -116,16 +124,9 @@ budget_summary %>%
   geom_line() +
   scale_x_continuous(breaks = c(2011:2019)) +
  labs(title = "City of Chicago Budget",subtitle = "Employee Salaries", y="Dollars (in Billions)",x="")
-
-# chart of year over year budget growth rate
-budget_summary %>%
-  ggplot(aes(YEAR,growth)) +
-  geom_line() +
-  geom_smooth(method="lm") +
-  scale_x_continuous(breaks = c(2011:2019)) +
-  labs(title = "City of Chicago Budget",subtitle = "Employee Salary Growth", y="Growth Rate(%)",x="")
 ```
 
+# Top Departments
 ```{r}
 # total budget by department
 budget %>%
@@ -141,4 +142,95 @@ budget %>%
   labs(title = "Top Departments", subtitle = "Total Budget Amounts 2011-2019", x= "",y="$(in billions)")
 ```
 
+# Job Titles
+For every position there is a human readable job title ("Title Description") and a unique code ("Title Code").  We can group the records by Title Code to see which codes have multiple human readable names.  The histogram below shows that while most title codes have only one human readable job title, some have two or three. These will need to be cleaned up.
+```{r}
+budget %>% 
+  distinct(`TITLE DESCRIPTION`,`TITLE CODE`) %>% 
+  group_by(`TITLE CODE`) %>% 
+  summarise(count = n()) %>% 
+  ggplot(aes(count)) +
+  geom_histogram(bins = 3) +
+  labs(title = "Mismatched Title Names", subtitle = "Chicago Budget Data 2011-2019", x= "Same Title Code",y="# of Title Names")
+```
+```{r}
+budget %>% 
+  distinct(`TITLE DESCRIPTION`,`TITLE CODE`) %>% 
+  group_by(`TITLE CODE`) %>% 
+  summarise(count = n()) %>% 
+  filter(count >1) %>% 
+  
 
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Load packages
+library(stringdist)
+library(reshape2)
+library(stringr)
+library(tm)
+
+# select the field in the dataset with which you want to perform clustering
+Field <- budget$`TITLE DESCRIPTION`
+
+# create the stringdistmatrix using the Jaro–Winkler distance algorithm 
+UniqueField <- unique(as.character(Field))
+
+DistanceField <- stringdistmatrix(UniqueField,UniqueField,method = "jw") # you can experiment with changing the method to get better results
+
+rownames(DistanceField) <- UniqueField
+
+# loop the clustering algorithm until it reaches the desired average number of records. the thought being that if we have a dataset with records we expect to be mostly unique than the average records in a cluster will be low.  This loop will determine the right number of clusters for your dataset.
+
+  # set starting number of clusters
+  i <- 1
+  
+  # set a starting avg_cluster (should be greater than x)
+  avg_cluster <- 2
+  
+  # this one is important. how many records do you expect to be similar?
+  x <- 2
+  
+  # define variable for use in clustering algorithm
+  hc <- hclust(as.dist(DistanceField))
+
+  # begin the loop
+  while (avg_cluster > x) {
+     dfClust <- data.frame(UniqueField, cutree(hc, k=i))
+     names(dfClust) <- c('UniqueField','cluster')
+     avg_cluster <- mean(table(dfClust$cluster))
+     i = i+1
+     }
+
+# compile the cluster data into a data.frame
+t <- table(dfClust$cluster)
+t <- cbind(t,t / length(dfClust$cluster))
+t <- t[order(t[,2], decreasing=TRUE),]
+p <- data.frame(factorName=rownames(t), binCount=t[,1], percentFound=t[,2])
+
+
+dfClust <- merge(x=dfClust, y=p, by.x = 'cluster', by.y='factorName', all.x=T)
+
+dfClust <- dfClust[rev(order(dfClust$binCount,dfClust$cluster)),] # sort by the size of the cluster bin then the cluster ID
+
+names(dfClust) <-  c('cluster','UniqueField','binCount')
+```
+
+
+The relationship between the number of clusters and the total number of records is interesting. In theory, if a dataset has no discernable patterns with which to cluster on, then the number of clusters would be equal to the number of records. In other words, each record would be its own "cluster".
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# How many clusters did we end up with?
+print(paste('Number of clusters:', i))
+
+# How many records in the dataset?
+print(paste('Number of records:',NROW(data)))
+```
+
+Now we can take a look at the top results to start identifying the "real" patterns and further refining our data.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# print cluster results
+kable(dfClust[order(dfClust[1:200,3], dfClust[1:200,2], decreasing = T),1:2]) %>%
+  kable_styling(bootstrap_options = c("striped","hover", "condensed","responsive"),fixed_thead = T) %>%
+  column_spec(1, bold = T, border_right = T) %>%
+  column_spec(2, width = "5m")
+```
